@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم نواقص الصيدليات</title>
+    <meta name="description" content="لوحة تحكم احترافية لمتابعة وإدارة نواقص فروع الصيدليات">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Background decoration -->
+    <div class="bg-decoration">
+        <div class="bg-orb bg-orb-1"></div>
+        <div class="bg-orb bg-orb-2"></div>
+        <div class="bg-orb bg-orb-3"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="header" id="main-header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">💊</div>
+                <div>
+                    <h1 class="logo-title">لوحة نواقص الصيدليات</h1>
+                    <p class="logo-subtitle">نظام إدارة الطلبات والنواقص</p>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="selected-count-badge" id="selected-badge" style="display:none;">
+                    <span id="selected-count-text">0</span> صنف محدد
+                </div>
+                <button class="btn-pdf" id="btn-open-pdf" onclick="openPdfPanel()" style="display:none;">
+                    <span class="btn-icon">📄</span> تجهيز طلبية PDF
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div id="data-container" class="cards-container">
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <p>جاري تحميل النواقص...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- PDF Side Panel -->
+    <div class="pdf-overlay" id="pdf-overlay" onclick="closePdfPanel()"></div>
+    <div class="pdf-panel" id="pdf-panel">
+        <div class="pdf-panel-header">
+            <h2>📄 تجهيز طلبية للموزع</h2>
+            <button class="btn-close-panel" onclick="closePdfPanel()">✕</button>
+        </div>
+        <div class="pdf-panel-body">
+            <div class="pdf-info-bar">
+                <div class="info-item">
+                    <span class="info-label">الفرع</span>
+                    <span class="info-value" id="pdf-branch-name">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">التاريخ</span>
+                    <span class="info-value" id="pdf-date">-</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">عدد الأصناف</span>
+                    <span class="info-value" id="pdf-items-count">0</span>
+                </div>
+            </div>
+            <div class="pdf-items-list" id="pdf-items-list">
+                <!-- Selected items will appear here -->
+            </div>
+        </div>
+        <div class="pdf-panel-footer">
+            <button class="btn-generate-pdf" id="btn-generate-pdf" onclick="generatePDF()">
+                <span>🖨️</span> طباعة PDF وإرسال للموزع
+            </button>
+            <button class="btn-clear-selection" onclick="clearAllSelections()">
+                <span>🗑️</span> مسح التحديد
+            </button>
+        </div>
+    </div>
+
+    <!-- Quantity Popup Modal -->
+    <div class="qty-modal-overlay" id="qty-modal-overlay" onclick="closeQtyModal()"></div>
+    <div class="qty-modal" id="qty-modal">
+        <div class="qty-modal-header">
+            <h3>تحديد الكمية</h3>
+            <p class="qty-drug-name" id="qty-drug-name"></p>
+        </div>
+        <div class="qty-presets">
+            <button class="qty-preset-btn" onclick="setQty(1)">1</button>
+            <button class="qty-preset-btn" onclick="setQty(2)">2</button>
+            <button class="qty-preset-btn" onclick="setQty(3)">3</button>
+            <button class="qty-preset-btn" onclick="setQty(4)">4</button>
+            <button class="qty-preset-btn" onclick="setQty(5)">5</button>
+            <button class="qty-preset-btn" onclick="setQty(6)">6</button>
+            <button class="qty-preset-btn" onclick="setQty(7)">7</button>
+            <button class="qty-preset-btn" onclick="setQty(8)">8</button>
+            <button class="qty-preset-btn" onclick="setQty(9)">9</button>
+            <button class="qty-preset-btn" onclick="setQty(10)">10</button>
+        </div>
+        <div class="qty-custom">
+            <label>كمية مخصصة:</label>
+            <div class="qty-custom-input-group">
+                <button class="qty-step-btn" onclick="stepQty(-1)">−</button>
+                <input type="number" id="qty-custom-input" min="1" max="999" value="1" onkeydown="if(event.key==='Enter')confirmQty()">
+                <button class="qty-step-btn" onclick="stepQty(1)">+</button>
+            </div>
+        </div>
+        <div class="qty-modal-footer">
+            <button class="btn-qty-confirm" onclick="confirmQty()">✓ تأكيد</button>
+            <button class="btn-qty-cancel" onclick="closeQtyModal()">إلغاء</button>
+        </div>
+    </div>
+
+    <!-- Hidden PDF Render Area -->
+    <div id="pdf-render-area" style="position:absolute;left:-9999px;top:0;"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
