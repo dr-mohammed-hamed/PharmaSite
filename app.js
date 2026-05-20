@@ -8,6 +8,46 @@ let allRecords = [];
 // Store drug info per row for event delegation
 const rowDataMap = new Map(); // key: itemId, value: { drugName, branch, date }
 
+// ======= Delete and Archive Functions =======
+function parseRecordDate(dateStr) {
+    if (!dateStr) return null;
+    const normalized = dateStr.replace(/\//g, '-');
+    const parsed = new Date(normalized);
+    return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function deleteRecord(key) {
+    if (!confirm("هل أنت متأكد من حذف قائمة النواقص هذه نهائياً؟")) return;
+    try {
+        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/shortages/${key}.json`;
+        const response = await fetch(deleteUrl, { method: 'DELETE' });
+        if (response.ok) {
+            // Remove selected items related to this key
+            for (const [id] of selectedItems) {
+                if (id.startsWith(key + '_')) {
+                    selectedItems.delete(id);
+                }
+            }
+            updateGlobalUI();
+            loadShortages();
+        } else {
+            alert("❌ حدث خطأ أثناء محاولة حذف القائمة.");
+        }
+    } catch (error) {
+        console.error("Error deleting record:", error);
+        alert("❌ فشل الاتصال بقاعدة البيانات لعملية الحذف.");
+    }
+}
+
+async function deleteRecordInBackground(key) {
+    try {
+        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/shortages/${key}.json`;
+        await fetch(deleteUrl, { method: 'DELETE' });
+    } catch (error) {
+        console.error("Background auto-delete error for key:", key, error);
+    }
+}
+
 // ======= Load Data =======
 async function loadShortages() {
     const container = document.getElementById('data-container');
@@ -27,16 +67,27 @@ async function loadShortages() {
 
         allRecords = Object.entries(data).reverse();
 
+        const now = new Date();
+        const threeDaysInMs = 3 * 24 * 60 * 60 * 1000;
+        let visibleIdx = 0;
+
         allRecords.forEach(([key, record], recordIdx) => {
+            // Automatic Deletion Check (3 days)
+            const recordDateObj = parseRecordDate(record.date);
+            if (recordDateObj && (now.getTime() - recordDateObj.getTime() > threeDaysInMs)) {
+                deleteRecordInBackground(key);
+                return; // Skip rendering
+            }
+
             const card = document.createElement('div');
             card.className = 'branch-card';
-            card.style.animationDelay = `${recordIdx * 0.08}s`;
+            card.style.animationDelay = `${visibleIdx * 0.08}s`;
+            visibleIdx++;
 
             const lines = record.items.split('\n').filter(l => l.trim() !== '');
             if (lines.length === 0) return;
 
             const headers = lines[0].split('\t');
-            // Drug name is always in the SECOND column (index 1)
             const drugNameColIdx = headers.length > 1 ? 1 : 0;
 
             // Build header
@@ -55,6 +106,9 @@ async function loadShortages() {
                             data-date="${escapeAttr(record.date)}">
                         تحديد الكل
                     </button>
+                    <button class="btn-delete-list" data-action="delete-list" data-key="${key}" title="حذف القائمة">
+                        🗑️ حذف
+                    </button>
                 </div>`;
             card.appendChild(cardHeader);
 
@@ -63,7 +117,6 @@ async function loadShortages() {
             tableWrapper.className = 'table-wrapper';
 
             let tableHTML = '<table class="data-table"><thead><tr>';
-            tableHTML += '<th>✓</th>';
             headers.forEach(h => {
                 tableHTML += `<th>${escapeHTML(h)}</th>`;
             });
@@ -87,13 +140,6 @@ async function loadShortages() {
 
                 tableHTML += `<tr id="row-${itemId}" class="${isSelected ? 'selected' : ''}" 
                                   data-record-idx="${recordIdx}" data-item-id="${itemId}">`;
-                tableHTML += `<td>
-                    <div class="custom-checkbox ${isSelected ? 'checked' : ''}" 
-                         id="cb-${itemId}"
-                         data-action="toggle"
-                         data-item-id="${itemId}">
-                    </div>
-                </td>`;
                 cols.forEach(c => {
                     tableHTML += `<td>${escapeHTML(c)}</td>`;
                 });
@@ -112,6 +158,14 @@ async function loadShortages() {
             container.appendChild(card);
         });
 
+        if (visibleIdx === 0) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">✅</div>
+                    <p>لا توجد أي نواقص مسجلة حالياً</p>
+                </div>`;
+        }
+
     } catch (error) {
         console.error("Error fetching data:", error);
         container.innerHTML = `
@@ -123,23 +177,38 @@ async function loadShortages() {
 
 // ======= Event Delegation (fixes onclick issues) =======
 document.addEventListener('click', function(e) {
-    // Handle checkbox toggle
-    const toggleEl = e.target.closest('[data-action="toggle"]');
-    if (toggleEl) {
+    // Handle delete-list button
+    const deleteBtn = e.target.closest('[data-action="delete-list"]');
+    if (deleteBtn) {
         e.stopPropagation();
-        const itemId = toggleEl.dataset.itemId;
-        const info = rowDataMap.get(itemId);
-        if (!info) return;
-
-        if (selectedItems.has(itemId)) {
-            selectedItems.delete(itemId);
-            updateRowUI(itemId, false);
-        } else {
-            selectedItems.set(itemId, { name: info.drugName, qty: 1, branch: info.branch, date: info.date });
-            updateRowUI(itemId, true);
-        }
-        updateGlobalUI();
+        const key = deleteBtn.dataset.key;
+        deleteRecord(key);
         return;
+    }
+
+    // Handle row selection (entire row except quantity column or buttons)
+    const rowEl = e.target.closest('tr[data-item-id]');
+    if (rowEl) {
+        const targetTd = e.target.closest('td');
+        const isQtyCell = targetTd && !targetTd.nextElementSibling;
+        const isButton = e.target.closest('button');
+
+        if (!isQtyCell && !isButton) {
+            e.stopPropagation();
+            const itemId = rowEl.dataset.itemId;
+            const info = rowDataMap.get(itemId);
+            if (!info) return;
+
+            if (selectedItems.has(itemId)) {
+                selectedItems.delete(itemId);
+                updateRowUI(itemId, false);
+            } else {
+                selectedItems.set(itemId, { name: info.drugName, qty: 1, branch: info.branch, date: info.date });
+                updateRowUI(itemId, true);
+            }
+            updateGlobalUI();
+            return;
+        }
     }
 
     // Handle change quantity button
@@ -206,7 +275,6 @@ function toggleSelectAll(recordIdx, branch, date) {
 // ======= Update Single Row UI =======
 function updateRowUI(itemId, isSelected) {
     const row = document.getElementById(`row-${itemId}`);
-    const cb = document.getElementById(`cb-${itemId}`);
     const qtyBadge = document.getElementById(`qty-badge-${itemId}`);
     const qtyVal = document.getElementById(`qty-val-${itemId}`);
     
@@ -214,13 +282,11 @@ function updateRowUI(itemId, isSelected) {
 
     if (isSelected) {
         row.classList.add('selected');
-        cb?.classList.add('checked');
         qtyBadge?.classList.add('visible');
         const item = selectedItems.get(itemId);
         if (qtyVal && item) qtyVal.textContent = item.qty;
     } else {
         row.classList.remove('selected');
-        cb?.classList.remove('checked');
         qtyBadge?.classList.remove('visible');
     }
 }
@@ -345,10 +411,11 @@ function renderPdfPanel() {
         div.style.animationDelay = `${idx * 0.05}s`;
         div.innerHTML = `
             <span class="pdf-item-name">${escapeHTML(item.name)}</span>
-            <span class="pdf-item-qty">${item.qty} علبة</span>
+            <span class="pdf-item-qty" title="اضغط لتغيير الكمية">${item.qty} علبة</span>
             <button class="pdf-item-remove" data-remove-id="${id}" title="إزالة">✕</button>
         `;
-        // Use event listener instead of inline onclick
+        // Use event listeners
+        div.querySelector('.pdf-item-qty').addEventListener('click', () => openQtyModal(id, item.name));
         div.querySelector('.pdf-item-remove').addEventListener('click', () => removeFromPdf(id));
         list.appendChild(div);
         idx++;
