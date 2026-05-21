@@ -564,6 +564,43 @@ async function generatePDF() {
     renderArea.innerHTML = '';
 }
 
+// ======= Send WhatsApp =======
+function sendWhatsApp() {
+    if (selectedItems.size === 0) return;
+
+    // Get branch & date
+    let branch = 'الصيدلية', date = '';
+    for (const [, item] of selectedItems) {
+        branch = item.branch;
+        date = item.date;
+        break;
+    }
+
+    // Build the formatted text using WhatsApp-friendly typography
+    let messageText = `💊 *طلب أدوية ونواقص - ${branch}*\n`;
+    messageText += `_تاريخ النواقص: ${date}_\n`;
+    messageText += `_تاريخ الطلبية: ${new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' })}_\n\n`;
+    messageText += `*الأصناف المطلوبة (العدد: ${selectedItems.size}):*\n`;
+    messageText += `=========================\n\n`;
+
+    let i = 0;
+    for (const [, item] of selectedItems) {
+        i++;
+        messageText += `*${i}. ${item.name}*\n`;
+        messageText += `👈 الكمية المطلوبة: *${item.qty}* علبة\n\n`;
+    }
+
+    messageText += `=========================\n`;
+    messageText += `📦 _تم تجهيز الطلبية تلقائياً عبر نظام إدارة النواقص الذكي_`;
+
+    // Encode text for URL query
+    const encodedText = encodeURIComponent(messageText);
+    const whatsappUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+
+    // Open WhatsApp Web or app in a new tab
+    window.open(whatsappUrl, '_blank');
+}
+
 // ======= Utility Functions =======
 function escapeHTML(str) {
     if (!str) return '';
