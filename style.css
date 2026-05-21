@@ -24,6 +24,31 @@
     --shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.4);
     --shadow-md: 0 8px 30px rgba(0, 0, 0, 0.3);
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --bg-header: rgba(10, 14, 26, 0.8);
+}
+
+:root.light-theme {
+    --bg-primary: #f8fafc;
+    --bg-secondary: #ffffff;
+    --bg-card: rgba(255, 255, 255, 0.95);
+    --bg-card-hover: rgba(241, 245, 249, 0.95);
+    --glass: rgba(15, 23, 42, 0.03);
+    --glass-border: rgba(15, 23, 42, 0.08);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #94a3b8;
+    --accent: #2563eb;
+    --accent-light: #3b82f6;
+    --accent-glow: rgba(37, 211, 102, 0.15);
+    --success: #10b981;
+    --success-glow: rgba(16, 185, 129, 0.15);
+    --warning: #d97706;
+    --danger: #dc2626;
+    --purple: #7c3aed;
+    --pink: #db2777;
+    --shadow-lg: 0 20px 40px rgba(15, 23, 42, 0.06);
+    --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.03);
+    --bg-header: rgba(255, 255, 255, 0.85);
 }
 
 *, *::before, *::after {
@@ -95,7 +120,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    background: rgba(10, 14, 26, 0.8);
+    background: var(--bg-header);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--glass-border);
@@ -165,6 +190,27 @@ body {
 @keyframes pulse-badge {
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.05); }
+}
+
+.btn-theme-toggle {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: var(--transition);
+}
+
+.btn-theme-toggle:hover {
+    background: var(--glass-border);
+    border-color: var(--accent);
+    transform: rotate(15deg) scale(1.05);
 }
 
 .btn-pdf {
@@ -352,19 +398,19 @@ body {
     position: sticky;
     left: 0;
     z-index: 10;
-    background: #111827;
+    background: var(--bg-secondary);
     box-shadow: 4px 0 8px rgba(0, 0, 0, 0.4);
 }
 
 /* Elevate last header z-index to stay above body cells when scrolling */
 .data-table thead th:last-child {
     z-index: 12;
-    background: #131b2e;
+    background: var(--bg-secondary);
 }
 
 /* Keep sticky cell backgrounds dynamic during row selections and hovers */
 .data-table tbody tr:hover td:last-child {
-    background: #1e293b !important;
+    background: var(--bg-card-hover) !important;
 }
 
 .data-table tbody tr.selected td:last-child {

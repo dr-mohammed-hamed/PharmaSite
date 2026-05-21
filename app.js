@@ -48,6 +48,15 @@ async function deleteRecordInBackground(key) {
     }
 }
 
+// ======= Debounce Helper =======
+function debounce(func, wait) {
+    let timeout;
+    return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+    };
+}
+
 // ======= Load Data =======
 async function loadShortages() {
     const container = document.getElementById('data-container');
@@ -174,6 +183,8 @@ async function loadShortages() {
             </div>`;
     }
 }
+
+const debouncedLoadShortages = debounce(loadShortages, 300);
 
 // ======= Event Delegation (fixes onclick issues) =======
 document.addEventListener('click', function(e) {
@@ -625,5 +636,61 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
+// ======= Theme Management =======
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    const toggleIcon = document.querySelector('.theme-icon');
+    if (savedTheme === 'light') {
+        document.documentElement.classList.add('light-theme');
+        if (toggleIcon) toggleIcon.textContent = '🌙';
+    } else {
+        document.documentElement.classList.remove('light-theme');
+        if (toggleIcon) toggleIcon.textContent = '☀️';
+    }
+}
+
+function toggleTheme() {
+    const isLight = document.documentElement.classList.toggle('light-theme');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    const toggleIcon = document.querySelector('.theme-icon');
+    if (toggleIcon) {
+        toggleIcon.textContent = isLight ? '🌙' : '☀️';
+    }
+}
+
+// ======= Real-time Listener =======
+let realtimeEventSource = null;
+
+function setupRealtimeListener() {
+    if (realtimeEventSource) {
+        realtimeEventSource.close();
+    }
+
+    try {
+        // Firebase RTDB SSE endpoint
+        realtimeEventSource = new EventSource("https://pharmashortages-default-rtdb.firebaseio.com/shortages.json");
+
+        realtimeEventSource.addEventListener('put', function(e) {
+            debouncedLoadShortages();
+        });
+
+        realtimeEventSource.addEventListener('patch', function(e) {
+            debouncedLoadShortages();
+        });
+
+        realtimeEventSource.onerror = function(err) {
+            console.error("Real-time listener encountered an error, reconnecting in 5s...", err);
+            if (realtimeEventSource) {
+                realtimeEventSource.close();
+            }
+            setTimeout(setupRealtimeListener, 5000);
+        };
+    } catch (error) {
+        console.error("Failed to setup real-time listener:", error);
+    }
+}
+
 // ======= Initialize =======
-loadShortages();
+initTheme();
+debouncedLoadShortages();
+setupRealtimeListener();
