@@ -32,6 +32,9 @@
                 <button class="btn-theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="تغيير المظهر">
                     <span class="theme-icon">☀️</span>
                 </button>
+                <button class="btn-theme-toggle" id="account-btn" onclick="openAuthModal()" title="حساب المدير">
+                    <span class="theme-icon">👤</span>
+                </button>
                 <div class="selected-count-badge" id="selected-badge" style="display:none;">
                     <span id="selected-count-text">0</span> صنف محدد
                 </div>
@@ -130,6 +133,53 @@
     <!-- Hidden PDF Render Area -->
     <div id="pdf-render-area" style="position:absolute;left:-9999px;top:0;"></div>
 
+    <!-- Auth Modal -->
+    <div class="auth-overlay" id="auth-overlay" onclick="closeAuthModal()"></div>
+    <div class="auth-modal" id="auth-modal">
+        <div class="auth-modal-header">
+            <h2 id="auth-modal-title">👤 حساب مدير الصيدلية</h2>
+            <button class="btn-close-modal" onclick="closeAuthModal()">✕</button>
+        </div>
+        
+        <!-- State 1: Logged Out -->
+        <div class="auth-logged-out" id="auth-logged-out">
+            <form id="auth-form" onsubmit="handleAuthSubmit(event)">
+                <div class="form-group">
+                    <label>البريد الإلكتروني:</label>
+                    <input type="email" id="auth-email" required placeholder="name@example.com">
+                </div>
+                <div class="form-group">
+                    <label>كلمة المرور:</label>
+                    <input type="password" id="auth-password" required placeholder="••••••••" minlength="6">
+                </div>
+                <div class="auth-error-msg" id="auth-error-msg"></div>
+                <button type="submit" class="btn-auth-submit" id="btn-auth-submit">تسجيل الدخول</button>
+            </form>
+        </div>
+
+        <!-- State 2: Logged In -->
+        <div class="auth-logged-in" id="auth-logged-in" style="display:none;">
+            <div class="manager-info">
+                <div class="info-row">
+                    <span class="info-label">البريد الإلكتروني:</span>
+                    <span class="info-value email-value" id="manager-email">-</span>
+                </div>
+                <div class="info-row linking-code-container">
+                    <span class="info-label">كود ربط الفروع (Linking Code):</span>
+                    <div class="linking-code-wrapper">
+                        <span class="linking-code-value" id="manager-linking-code">-</span>
+                        <button class="btn-copy-code" onclick="copyLinkingCode()" title="نسخ الكود">📋 نسخ</button>
+                    </div>
+                    <p class="linking-code-hint">انسخ هذا الكود والصقه في برنامج سطح المكتب (AHK) لربطه بحسابك.</p>
+                </div>
+            </div>
+            <button class="btn-logout" onclick="handleLogout()">🚪 تسجيل الخروج</button>
+        </div>
+    </div>
+
+    <!-- Firebase Compat SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="app.js"></script>
 </body>
 </html>

@@ -1,5 +1,21 @@
-// ======= Firebase Database URL =======
-const dbUrl = "https://pharmashortages-default-rtdb.firebaseio.com/shortages.json";
+// ======= Firebase Config & Initialization =======
+const firebaseConfig = {
+  apiKey: "AIzaSyA8V6N-7hCQK2w5Q0cUeeMvHgty4srWhj8",
+  authDomain: "pharmashortages.firebaseapp.com",
+  databaseURL: "https://pharmashortages-default-rtdb.firebaseio.com",
+  projectId: "pharmashortages",
+  storageBucket: "pharmashortages.firebasestorage.app",
+  messagingSenderId: "580517539776",
+  appId: "1:580517539776:web:b3ec77994d467bba6a2225",
+  measurementId: "G-TM55VHD2E2"
+};
+
+// Initialize Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+let currentUser = null;
+let managerLinkingCode = null;
 
 // ======= State Management =======
 const selectedItems = new Map(); // key: unique id, value: { name, qty, branch, date }
@@ -17,9 +33,11 @@ function parseRecordDate(dateStr) {
 }
 
 async function deleteRecord(key) {
+    if (!currentUser) return;
     if (!confirm("هل أنت متأكد من حذف قائمة النواقص هذه نهائياً؟")) return;
     try {
-        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/shortages/${key}.json`;
+        const token = await auth.currentUser.getIdToken();
+        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/managers/${managerLinkingCode}/shortages/${key}.json?auth=${token}`;
         const response = await fetch(deleteUrl, { method: 'DELETE' });
         if (response.ok) {
             // Remove selected items related to this key
@@ -40,8 +58,10 @@ async function deleteRecord(key) {
 }
 
 async function deleteRecordInBackground(key) {
+    if (!currentUser) return;
     try {
-        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/shortages/${key}.json`;
+        const token = await auth.currentUser.getIdToken();
+        const deleteUrl = `https://pharmashortages-default-rtdb.firebaseio.com/managers/${managerLinkingCode}/shortages/${key}.json?auth=${token}`;
         await fetch(deleteUrl, { method: 'DELETE' });
     } catch (error) {
         console.error("Background auto-delete error for key:", key, error);
@@ -60,7 +80,18 @@ function debounce(func, wait) {
 // ======= Load Data =======
 async function loadShortages() {
     const container = document.getElementById('data-container');
+    if (!currentUser) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="icon">🔑</div>
+                <p style="margin-bottom:14px;">يرجى تسجيل الدخول لعرض وإدارة لوحة النواقص الخاصة بك</p>
+                <button class="btn-pdf" onclick="openAuthModal()" style="display:inline-flex;margin: 0 auto;">تسجيل الدخول</button>
+            </div>`;
+        return;
+    }
     try {
+        const token = await auth.currentUser.getIdToken();
+        const dbUrl = `https://pharmashortages-default-rtdb.firebaseio.com/managers/${managerLinkingCode}/shortages.json?auth=${token}`;
         const response = await fetch(dbUrl);
         const data = await response.json();
         container.innerHTML = '';
@@ -666,14 +697,16 @@ function toggleTheme() {
 // ======= Real-time Listener =======
 let realtimeEventSource = null;
 
-function setupRealtimeListener() {
+async function setupRealtimeListener() {
+    if (!currentUser) return;
     if (realtimeEventSource) {
         realtimeEventSource.close();
     }
 
     try {
-        // Firebase RTDB SSE endpoint
-        realtimeEventSource = new EventSource("https://pharmashortages-default-rtdb.firebaseio.com/shortages.json");
+        const token = await auth.currentUser.getIdToken();
+        // Firebase RTDB SSE endpoint with auth query parameter
+        realtimeEventSource = new EventSource(`https://pharmashortages-default-rtdb.firebaseio.com/managers/${managerLinkingCode}/shortages.json?auth=${token}`);
 
         realtimeEventSource.addEventListener('put', function(e) {
             debouncedLoadShortages();
@@ -755,11 +788,195 @@ function updateMobileStickyHeaders() {
     });
 }
 
+// ======= Generate or Retrieve 5-Digit Linking Code =======
+async function getOrCreateLinkingCode(user) {
+    if (!user) return null;
+    try {
+        const token = await user.getIdToken();
+        const profileUrl = `https://pharmashortages-default-rtdb.firebaseio.com/managers_profile/${user.uid}/linking_code.json?auth=${token}`;
+        
+        // Try to fetch existing code
+        const response = await fetch(profileUrl);
+        let code = await response.json();
+        
+        if (code) {
+            return code;
+        }
+        
+        // If code doesn't exist, generate a unique 5-digit code
+        let unique = false;
+        while (!unique) {
+            code = Math.floor(10000 + Math.random() * 90000).toString();
+            
+            // Check if this code is already owned
+            const codeUrl = `https://pharmashortages-default-rtdb.firebaseio.com/codes/${code}.json?auth=${token}`;
+            const codeResp = await fetch(codeUrl);
+            const codeOwner = await codeResp.json();
+            
+            if (!codeOwner) {
+                unique = true;
+            }
+        }
+        
+        // Save bidirectional mapping
+        // 1. Save in /codes/[code] = uid
+        const writeCodeUrl = `https://pharmashortages-default-rtdb.firebaseio.com/codes/${code}.json?auth=${token}`;
+        await fetch(writeCodeUrl, {
+            method: 'PUT',
+            body: JSON.stringify(user.uid)
+        });
+        
+        // 2. Save in /managers_profile/[uid]/linking_code = code
+        await fetch(profileUrl, {
+            method: 'PUT',
+            body: JSON.stringify(code)
+        });
+        
+        return code;
+    } catch (error) {
+        console.error("Error in getOrCreateLinkingCode:", error);
+        return null;
+    }
+}
+
+// ======= Firebase Auth State Observer =======
+auth.onAuthStateChanged(async (user) => {
+    currentUser = user;
+    
+    if (user) {
+        // Update UI state first showing a loading indicator
+        updateAuthUI();
+        
+        // User logged in, get or create their 5-digit linking code
+        managerLinkingCode = await getOrCreateLinkingCode(user);
+        updateAuthUI();
+        
+        if (managerLinkingCode) {
+            debouncedLoadShortages();
+            setupRealtimeListener();
+        } else {
+            console.error("Failed to retrieve or generate linking code.");
+        }
+    } else {
+        managerLinkingCode = null;
+        updateAuthUI();
+        // User logged out, clear UI
+        const container = document.getElementById('data-container');
+        if (container) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <div class="icon">🔑</div>
+                    <p style="margin-bottom:14px;">يرجى تسجيل الدخول لعرض وإدارة لوحة النواقص الخاصة بك</p>
+                    <button class="btn-pdf" onclick="openAuthModal()" style="display:inline-flex;margin: 0 auto;">تسجيل الدخول</button>
+                </div>`;
+        }
+        if (realtimeEventSource) {
+            realtimeEventSource.close();
+            realtimeEventSource = null;
+        }
+    }
+});
+
+// ======= Auth UI Actions =======
+function openAuthModal() {
+    document.getElementById('auth-overlay').classList.add('open');
+    document.getElementById('auth-modal').classList.add('open');
+    updateAuthUI();
+}
+
+function closeAuthModal() {
+    document.getElementById('auth-overlay').classList.remove('open');
+    document.getElementById('auth-modal').classList.remove('open');
+    document.getElementById('auth-error-msg').textContent = '';
+}
+
+
+
+function updateAuthUI() {
+    const loggedOutDiv = document.getElementById('auth-logged-out');
+    const loggedInDiv = document.getElementById('auth-logged-in');
+    const accountBtn = document.getElementById('account-btn');
+    
+    if (currentUser) {
+        loggedOutDiv.style.display = 'none';
+        loggedInDiv.style.display = 'block';
+        if (accountBtn) accountBtn.style.border = '1px solid var(--success)';
+        
+        document.getElementById('manager-email').textContent = currentUser.email;
+        document.getElementById('manager-linking-code').textContent = managerLinkingCode || '⏳ جاري التحميل...';
+    } else {
+        loggedOutDiv.style.display = 'block';
+        loggedInDiv.style.display = 'none';
+        if (accountBtn) accountBtn.style.border = '';
+    }
+}
+
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const email = document.getElementById('auth-email').value.trim();
+    const password = document.getElementById('auth-password').value;
+    const errorMsg = document.getElementById('auth-error-msg');
+    const btnSubmit = document.getElementById('btn-auth-submit');
+    
+    errorMsg.textContent = '';
+    btnSubmit.disabled = true;
+    const originalText = btnSubmit.textContent;
+    btnSubmit.textContent = '⏳ جاري التحميل...';
+    
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        closeAuthModal();
+    } catch (error) {
+        console.error("Auth error:", error);
+        let arError = "❌ حدث خطأ غير معروف، يرجى المحاولة مرة أخرى.";
+        if (error.code === 'auth/wrong-password') {
+            arError = "❌ كلمة المرور غير صحيحة.";
+        } else if (error.code === 'auth/user-not-found') {
+            arError = "❌ لم يتم العثور على حساب بهذا البريد الإلكتروني.";
+        } else if (error.code === 'auth/email-already-in-use') {
+            arError = "❌ هذا البريد الإلكتروني مستخدم بالفعل.";
+        } else if (error.code === 'auth/weak-password') {
+            arError = "❌ كلمة المرور ضعيفة جداً (يجب ألا تقل عن 6 أحرف).";
+        } else if (error.code === 'auth/invalid-email') {
+            arError = "❌ البريد الإلكتروني غير صالح.";
+        }
+        errorMsg.textContent = arError;
+    } finally {
+        btnSubmit.disabled = false;
+        btnSubmit.textContent = originalText;
+    }
+}
+
+async function handleLogout() {
+    if (confirm("هل أنت متأكد من تسجيل الخروج؟")) {
+        try {
+            await auth.signOut();
+            closeAuthModal();
+        } catch (error) {
+            console.error("Logout error:", error);
+        }
+    }
+}
+
+function copyLinkingCode() {
+    if (!currentUser || !managerLinkingCode) return;
+    const code = managerLinkingCode;
+    navigator.clipboard.writeText(code).then(() => {
+        const btn = document.querySelector('.btn-copy-code');
+        const originalText = btn.textContent;
+        btn.textContent = '✅ تم النسخ!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 2000);
+    }).catch(err => {
+        console.error("Failed to copy code:", err);
+        alert("كود الربط الخاص بك هو: " + code);
+    });
+}
+
 // ======= Initialize =======
 initTheme();
 initSmartHeader();
-debouncedLoadShortages();
-setupRealtimeListener();
 
 // Register listeners
 window.addEventListener('scroll', updateMobileStickyHeaders, { passive: true });
