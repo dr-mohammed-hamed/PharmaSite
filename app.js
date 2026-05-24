@@ -130,6 +130,15 @@ async function loadShortages() {
             const headers = lines[0].split('\t');
             const drugNameColIdx = headers.length > 1 ? 1 : 0;
 
+            // Find if there is a quantity/order column in the source headers to skip rendering it
+            let qtyColIdx = -1;
+            headers.forEach((h, idx) => {
+                const norm = h.trim();
+                if (norm === 'الكمية' || norm === 'الكميه' || norm === 'الطلب' || norm === 'الكمية المطلوبة' || norm === 'الكميه المطلوبه' || norm === 'Qty' || norm === 'Quantity') {
+                    qtyColIdx = idx;
+                }
+            });
+
             // Build header
             const cardHeader = document.createElement('div');
             cardHeader.className = 'card-header';
@@ -157,8 +166,10 @@ async function loadShortages() {
             tableWrapper.className = 'table-wrapper';
 
             let tableHTML = '<table class="data-table"><thead><tr>';
-            headers.forEach(h => {
-                tableHTML += `<th>${escapeHTML(h)}</th>`;
+            headers.forEach((h, idx) => {
+                if (idx !== qtyColIdx) {
+                    tableHTML += `<th>${escapeHTML(h)}</th>`;
+                }
             });
             tableHTML += '<th>الكمية</th>';
             tableHTML += '</tr></thead><tbody>';
@@ -180,9 +191,11 @@ async function loadShortages() {
 
                 tableHTML += `<tr id="row-${itemId}" class="${isSelected ? 'selected' : ''}" 
                                   data-record-idx="${recordIdx}" data-item-id="${itemId}">`;
-                cols.forEach(c => {
-                    const text = c ? c.trim() : '';
-                    tableHTML += `<td>${text ? escapeHTML(text) : '<span style="opacity: 0.35;">—</span>'}</td>`;
+                cols.forEach((c, idx) => {
+                    if (idx !== qtyColIdx) {
+                        const text = c ? c.trim() : '';
+                        tableHTML += `<td>${text ? escapeHTML(text) : '<span style="opacity: 0.35;">—</span>'}</td>`;
+                    }
                 });
                 tableHTML += `<td>
                     <span class="qty-badge ${isSelected ? 'visible' : ''}" id="qty-badge-${itemId}">
