@@ -150,12 +150,12 @@ async function loadShortages() {
                 tableHTML += `<tr id="row-${itemId}" class="${isSelected ? 'selected' : ''}" 
                                   data-record-idx="${recordIdx}" data-item-id="${itemId}">`;
                 cols.forEach(c => {
-                    tableHTML += `<td>${escapeHTML(c)}</td>`;
+                    const text = c ? c.trim() : '';
+                    tableHTML += `<td>${text ? escapeHTML(text) : '<span style="opacity: 0.35;">—</span>'}</td>`;
                 });
                 tableHTML += `<td>
                     <span class="qty-badge ${isSelected ? 'visible' : ''}" id="qty-badge-${itemId}">
-                        <span class="qty-value" id="qty-val-${itemId}">${qty}</span>
-                        <button class="btn-change-qty" data-action="change-qty" data-item-id="${itemId}">تغيير</button>
+                        <span class="qty-value" id="qty-val-${itemId}" data-action="change-qty" data-item-id="${itemId}" title="اضغط لتغيير الكمية">${qty}</span>
                     </span>
                 </td>`;
                 tableHTML += '</tr>';
@@ -174,6 +174,8 @@ async function loadShortages() {
                     <p>لا توجد أي نواقص مسجلة حالياً</p>
                 </div>`;
         }
+
+        setTimeout(updateMobileStickyHeaders, 50);
 
     } catch (error) {
         console.error("Error fetching data:", error);
@@ -307,15 +309,18 @@ function updateGlobalUI() {
     const count = selectedItems.size;
     const badge = document.getElementById('selected-badge');
     const btn = document.getElementById('btn-open-pdf');
+    const btnClear = document.getElementById('btn-clear-all');
     const countText = document.getElementById('selected-count-text');
 
     if (count > 0) {
         badge.style.display = 'inline-flex';
         btn.style.display = 'flex';
+        if (btnClear) btnClear.style.display = 'flex';
         countText.textContent = count;
     } else {
         badge.style.display = 'none';
         btn.style.display = 'none';
+        if (btnClear) btnClear.style.display = 'none';
     }
 }
 
@@ -690,7 +695,72 @@ function setupRealtimeListener() {
     }
 }
 
+// ======= Smart Sticky Header =======
+function initSmartHeader() {
+    let lastWindowScrollY = window.scrollY;
+    const lastScrollTopMap = new Map(); // tracks scrollTop per scrollable table container
+    const header = document.getElementById('main-header');
+    if (!header) return;
+
+    // Use capturing (true) to catch scroll events on dynamically rendered .table-wrapper divs!
+    window.addEventListener('scroll', (e) => {
+        const target = e.target;
+
+        if (target === document || target === window) {
+            // Page scroll
+            const currentScrollY = window.scrollY;
+            if (currentScrollY > lastWindowScrollY && currentScrollY > 100) {
+                header.classList.add('header-hidden');
+            } else if (currentScrollY < lastWindowScrollY) {
+                header.classList.remove('header-hidden');
+            }
+            lastWindowScrollY = currentScrollY;
+        } else if (target && target.classList && target.classList.contains('table-wrapper')) {
+            // Scroll inside dynamic drug table wrapper
+            const currentScrollTop = target.scrollTop;
+            const lastScrollTop = lastScrollTopMap.get(target) || 0;
+
+            if (currentScrollTop > lastScrollTop && currentScrollTop > 40) {
+                header.classList.add('header-hidden');
+            } else if (currentScrollTop < lastScrollTop) {
+                header.classList.remove('header-hidden');
+            }
+            lastScrollTopMap.set(target, currentScrollTop);
+        }
+    }, true);
+}
+
+// ======= Mobile Sticky Headers Synchronization =======
+function updateMobileStickyHeaders() {
+    if (window.innerWidth > 768) {
+        document.querySelectorAll('.data-table thead th').forEach(th => {
+            th.style.top = '';
+        });
+        return;
+    }
+
+    const header = document.getElementById('main-header');
+    const isHeaderHidden = header ? header.classList.contains('header-hidden') : false;
+    const threshold = isHeaderHidden ? 0 : 60;
+
+    const wrappers = document.querySelectorAll('.table-wrapper');
+    wrappers.forEach(wrapper => {
+        const rect = wrapper.getBoundingClientRect();
+        const y = rect.top;
+        const ths = wrapper.querySelectorAll('.data-table thead th');
+        const offset = Math.max(0, threshold - y);
+        ths.forEach(th => {
+            th.style.setProperty('top', offset + 'px', 'important');
+        });
+    });
+}
+
 // ======= Initialize =======
 initTheme();
+initSmartHeader();
 debouncedLoadShortages();
 setupRealtimeListener();
+
+// Register listeners
+window.addEventListener('scroll', updateMobileStickyHeaders, { passive: true });
+window.addEventListener('resize', updateMobileStickyHeaders);

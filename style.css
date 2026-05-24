@@ -62,7 +62,7 @@ body {
     background: var(--bg-primary);
     color: var(--text-primary);
     min-height: 100vh;
-    overflow-x: hidden;
+    overflow-x: clip; /* use clip instead of hidden to prevent breaking position: sticky on mobile */
 }
 
 /* ========== Background Decoration ========== */
@@ -124,10 +124,20 @@ body {
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--glass-border);
-    padding: 16px 32px;
+    padding: 0 24px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s;
+    will-change: top;
+}
+
+.header.header-hidden {
+    top: -70px;
 }
 
 .header-content {
+    width: 100%;
     max-width: 1400px;
     margin: 0 auto;
     display: flex;
@@ -144,9 +154,9 @@ body {
 }
 
 .logo-icon {
-    font-size: 2.2rem;
-    width: 56px;
-    height: 56px;
+    font-size: 1.8rem;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -185,6 +195,28 @@ body {
     font-weight: 700;
     box-shadow: 0 4px 15px var(--success-glow);
     animation: pulse-badge 2s ease-in-out infinite;
+}
+
+.btn-clear-all {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #f87171;
+    border-radius: 30px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.btn-clear-all:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: var(--danger);
+    transform: translateY(-1px);
 }
 
 @keyframes pulse-badge {
@@ -245,13 +277,13 @@ body {
     z-index: 1;
     max-width: 1400px;
     margin: 0 auto;
-    padding: 32px;
+    padding: 20px;
 }
 
 .cards-container {
     display: flex;
     flex-direction: column;
-    gap: 28px;
+    gap: 18px;
 }
 
 /* ========== Loading State ========== */
@@ -284,7 +316,7 @@ body {
     backdrop-filter: blur(10px);
     border: 1px solid var(--glass-border);
     border-radius: var(--border-radius);
-    overflow: hidden;
+    overflow: visible;
     transition: var(--transition);
     animation: fadeInUp 0.5s ease-out both;
 }
@@ -303,7 +335,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 28px;
+    padding: 12px 20px;
     border-bottom: 1px solid var(--glass-border);
     flex-wrap: wrap;
     gap: 12px;
@@ -382,7 +414,7 @@ body {
 
 /* ========== Table ========== */
 .table-wrapper {
-    overflow-x: auto;
+    overflow: visible;
     padding: 0;
 }
 
@@ -392,23 +424,41 @@ body {
     font-size: 0.88rem;
 }
 
-/* Sticky Quantity (Last column) for horizontal scrolling on mobile */
+/* On desktop, last column behaves like a normal column */
 .data-table th:last-child,
 .data-table td:last-child {
+    background: var(--bg-secondary);
+}
+
+/* Opaque Table Header - Sticks below 70px page header on desktop */
+.data-table thead th {
+    background: linear-gradient(rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.08)), var(--bg-secondary);
+    color: var(--accent-light);
+    padding: 10px 14px;
+    text-align: right;
+    font-weight: 700;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--glass-border);
+    white-space: nowrap;
     position: sticky;
-    left: 0;
-    z-index: 10;
-    background: var(--bg-secondary);
-    box-shadow: 4px 0 8px rgba(0, 0, 0, 0.4);
+    top: 70px; /* Sticks right below the main header on desktop */
+    z-index: 15; /* Higher than table body rows */
+    transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Elevate last header z-index to stay above body cells when scrolling */
+/* Normal non-sticky corner cell on desktop */
 .data-table thead th:last-child {
-    z-index: 12;
-    background: var(--bg-secondary);
+    background: linear-gradient(rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.08)), var(--bg-secondary);
 }
 
-/* Keep sticky cell backgrounds dynamic during row selections and hovers */
+/* Shift table headers up to stick to the very top of screen when page header slides out of view on desktop */
+.header-hidden ~ .main-content .data-table thead th {
+    top: 0;
+}
+
+/* Keep cell backgrounds dynamic during row selections and hovers */
 .data-table tbody tr:hover td:last-child {
     background: var(--bg-card-hover) !important;
 }
@@ -419,21 +469,6 @@ body {
 
 .data-table tbody tr.selected:hover td:last-child {
     background: rgba(16, 185, 129, 0.26) !important;
-}
-
-.data-table thead th {
-    background: rgba(59, 130, 246, 0.08);
-    color: var(--accent-light);
-    padding: 14px 18px;
-    text-align: right;
-    font-weight: 700;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 1px solid var(--glass-border);
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
 }
 
 .data-table tbody tr {
@@ -457,7 +492,7 @@ body {
 }
 
 .data-table tbody td {
-    padding: 12px 18px;
+    padding: 8px 14px;
     color: var(--text-secondary);
     vertical-align: middle;
 }
@@ -515,30 +550,22 @@ body {
 .qty-value {
     background: linear-gradient(135deg, var(--accent), var(--purple));
     color: white;
-    padding: 3px 12px;
+    padding: 4px 14px;
     border-radius: 20px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    min-width: 28px;
+    font-size: 0.85rem;
+    font-weight: 800;
+    min-width: 32px;
     text-align: center;
-}
-
-.btn-change-qty {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    color: var(--text-secondary);
-    padding: 3px 10px;
-    border-radius: 8px;
-    font-family: 'Cairo', sans-serif;
-    font-size: 0.7rem;
-    cursor: pointer;
+    cursor: pointer; /* مؤشر اليد للدلالة على قابلية النقر وتغيير الكمية */
     transition: var(--transition);
+    display: inline-block;
+    box-shadow: 0 2px 8px var(--accent-glow);
 }
 
-.btn-change-qty:hover {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+.qty-value:hover {
+    transform: scale(1.1); /* تكبير ناعم وممتاز لتأكيد قابلية النقر */
+    box-shadow: 0 4px 15px var(--accent-glow);
+    filter: brightness(1.1);
 }
 
 /* ========== Quantity Modal ========== */
@@ -769,7 +796,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--glass-border);
 }
 
@@ -1103,46 +1130,256 @@ body {
 
 /* ========== Responsive ========== */
 @media (max-width: 768px) {
+    /* ترويسة هاتفية ذكية وأفقية */
     .header {
-        padding: 12px 16px;
+        padding: 0 16px !important;
+        height: 60px !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        background: var(--bg-secondary) !important; /* خلفية صلبة لمنع مشاكل fixed position وتحسين الأداء */
+        display: flex !important;
+        align-items: center !important;
+        transition: top 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    .header.header-hidden {
+        top: -60px !important;
     }
 
     .header-content {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
     }
 
-    .header-actions {
-        justify-content: center;
+    .logo-section {
+        gap: 8px;
+    }
+
+    .logo-icon {
+        width: 38px;
+        height: 38px;
+        font-size: 1.3rem;
+        border-radius: 10px;
+    }
+
+    .logo-title {
+        font-size: 1.05rem;
+    }
+
+    .logo-subtitle {
+        display: none; /* إخفاء الوصف لتوفير مساحة */
     }
 
     .main-content {
-        padding: 16px;
+        padding: 12px;
     }
 
+    /* توسيع أزرار التحكم لتسهيل اللمس */
     .card-header {
-        padding: 16px 18px;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 12px 16px;
     }
 
-    .branch-name {
-        font-size: 1.1rem;
+    .card-meta {
+        width: 100%;
+        justify-content: space-between;
+        gap: 8px;
     }
 
-    .data-table {
+    .btn-select-all, 
+    .btn-delete-list {
+        flex: 1;
+        text-align: center;
+        padding: 8px 12px;
         font-size: 0.8rem;
+    }
+
+    /* تسهيل النقر على صفوف الجدول وتثبيت العناوين على الهواتف */
+    /* تسهيل النقر على صفوف الجدول وتثبيت العناوين على الهواتف مع التمرير الأفقي وتوحيد الرأسي */
+    .data-table thead th {
+        position: sticky;
+        top: 60px !important; /* يلتصق أسفل هيدر الهاتف (60px) ويدعم التعديل الديناميكي عبر JS */
+        z-index: 15;
+        transition: none !important; /* إيقاف انتقالات الحركة لمنع الاهتزاز والتأخر أثناء التمرير السريع */
+        white-space: nowrap !important; /* منع التفاف النصوص لتأخذ الخلايا مساحتها الطبيعية في التمرير الأفقي */
+    }
+
+    .data-table thead th:last-child {
+        position: sticky !important;
+        left: 0 !important; /* تثبيت عمود الكمية أفقياً على اليسار */
+        top: 60px !important; /* يلتصق عمودياً ويدعم التعديل الديناميكي عبر JS */
+        z-index: 20;
+        background: linear-gradient(rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.08)), var(--bg-secondary) !important;
+        transition: none !important; /* إيقاف انتقالات الحركة لمنع الاهتزاز والتأخر أثناء التمرير السريع */
+        white-space: nowrap !important;
+        box-shadow: -4px 0 10px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    .header-hidden ~ .main-content .data-table thead th {
+        top: 0 !important;
+    }
+
+    .header-hidden ~ .main-content .data-table thead th:last-child {
+        top: 0 !important;
     }
 
     .data-table thead th,
     .data-table tbody td {
-        padding: 8px 10px;
+        padding: 10px 14px !important; /* حشوة مناسبة لتجنب الضغط */
+        font-size: 0.82rem !important;
+        white-space: nowrap !important; /* منع التفاف النصوص في الخلايا للحفاظ على تخطيط الأعمدة وتمكين التمرير الأفقي */
     }
 
+    /* تمرير أفقي منفصل وتمرير رأسي موحد مع الصفحة باستخدام overflow-y: clip المبتكر */
+    .table-wrapper {
+        overflow-x: auto !important;
+        overflow-y: clip !important; /* تمنع التمرير الرأسي الداخلي وتسمح بالارتباط بالصفحة مع الحفاظ على التمرير الأفقي */
+        max-height: none !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* جعل عمود الكمية يلتصق أفقياً على اليسار بشكل دائم وغير شفاف لعدم إظهار ما تحته */
+    .data-table tbody td:last-child {
+        position: sticky !important;
+        left: 0 !important;
+        z-index: 10;
+        background: var(--bg-secondary) !important; /* غير شفاف تماماً للوضع العادي (أبيض ناصع في النهار، كحلي داكن في الليل) */
+        box-shadow: -4px 0 10px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    /* معالجة حالة التحديد لتكون غير شفافة تماماً لمنع الشفافية الافتراضية */
+    .data-table tbody tr.selected td:last-child {
+        background: color-mix(in srgb, var(--success) 18%, var(--bg-secondary)) !important;
+    }
+
+    /* معالجة حالة التحويم لتكون غير شفافة تماماً */
+    .data-table tbody tr:hover td:last-child {
+        background: color-mix(in srgb, var(--accent) 8%, var(--bg-secondary)) !important;
+    }
+
+    /* معالجة حالة التحديد والتحويم معاً لتكون غير شفافة تماماً (مهمة جداً عند اللمس على الهواتف) */
+    .data-table tbody tr.selected:hover td:last-child {
+        background: color-mix(in srgb, var(--success) 26%, var(--bg-secondary)) !important;
+    }
+
+    /* شريط إجراءات سفلي عائم وفائق الأناقة */
+    #btn-open-pdf {
+        position: fixed;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        z-index: 150;
+        justify-content: center;
+        padding: 14px;
+        font-size: 0.95rem;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.45);
+        backdrop-filter: blur(10px);
+        animation: slideUpMobile 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    #selected-badge {
+        position: fixed;
+        bottom: 80px;
+        right: 20px;
+        left: auto;
+        transform: none;
+        z-index: 150;
+        font-size: 0.8rem;
+        padding: 6px 16px;
+        box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        animation: slideUpMobileRight 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    #btn-clear-all {
+        position: fixed;
+        bottom: 80px;
+        left: 20px;
+        z-index: 150;
+        font-size: 0.8rem;
+        padding: 6px 16px;
+        box-shadow: 0 8px 20px rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        background: rgba(17, 24, 39, 0.85); /* dark glass */
+        backdrop-filter: blur(10px);
+        animation: slideUpMobileLeft 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }
+
+    /* لوحة الـ PDF الجانبية تتحول لورقة سفلية انزلاقية */
     .pdf-panel {
         width: 100vw;
         max-width: 100vw;
+        height: 80vh;
+        top: auto;
+        bottom: 0;
+        border-radius: 24px 24px 0 0;
+        border-top: 1px solid var(--glass-border);
+        border-right: none;
+        transform: translateY(100%);
+        transition: transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);
+    }
+
+    .pdf-panel.open {
+        transform: translateY(0);
     }
 
     .pdf-info-bar {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .info-item {
+        padding: 8px 4px;
+    }
+
+    .info-value {
+        font-size: 0.85rem;
+    }
+
+    .qty-modal {
+        padding: 20px;
+        width: 92%;
+    }
+}
+
+/* حركة ظهور الأشرطة العائمة للهاتف */
+@keyframes slideUpMobile {
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* حركة ظهور الأشرطة العائمة لليسار */
+@keyframes slideUpMobileLeft {
+    from {
+        transform: translate(-100px, 100px);
+        opacity: 0;
+    }
+    to {
+        transform: translate(0, 0);
+        opacity: 1;
+    }
+}
+
+/* حركة ظهور الأشرطة العائمة لليمين */
+@keyframes slideUpMobileRight {
+    from {
+        transform: translate(100px, 100px);
+        opacity: 0;
+    }
+    to {
+        transform: translate(0, 0);
+        opacity: 1;
     }
 }
